@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="card">
+    <h2>🌐 Buy Data</h2>
+
+    {% if success %}
+        <div class="success">{{ success }}</div>
+    {% endif %}
+
+    {% if error %}
+        <div class="error">{{ error }}</div>
+    {% endif %}
+
+    <div class="balance-box">
+        <p>Available Balance</p>
+        <h1>₦{{ "%.2f"|format(user.balance) }}</h1>
+    </div>
+
+    <form method="POST">
+        <label>Select Network:</label>
+        <select name="network" required>
+            <option value="">-- Select Network --</option>
+            <option value="MTN">MTN</option>
+            <option value="Airtel">Airtel</option>
+            <option value="Glo">Glo</option>
+            <option value="9mobile">9mobile</option>
+        </select>
+
+        <label>Phone Number:</label>
+        <input type="text" name="phone"
+               placeholder="e.g. 08012345678"
+               required>
+
+        <label>Select Plan:</label>
+        <select name="plan" required>
+            <option value="">-- Select Plan --</option>
+            <option value="500MB">500MB</option>
+            <option value="1GB">1GB</option>
+            <option value="2GB">2GB</option>
+            <option value="5GB">5GB</option>
+            <option value="10GB">10GB</option>
+        </select>
+
+        <label>Amount (₦):</label>
+        <input type="number" name="amount"
+               placeholder="e.g. 200"
+               min="100" required>
+
+        <button class="btn" type="submit">
+            Buy Data
+        </button>
+    </form>
+
+    <br>
+    <a href="/dashboard" class="btn btn-red">
+        ⬅ Back to Dashboard
+    </a>
+</div>
+
+{% endblock %}
