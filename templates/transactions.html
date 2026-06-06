@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="card">
+    <h2>📋 Transaction History</h2>
+
+    {% if transactions %}
+    <table>
+        <tr>
+            <th>Type</th>
+            <th>Amount</th>
+            <th>Phone</th>
+            <th>Status</th>
+            <th>Date</th>
+        </tr>
+        {% for t in transactions %}
+        <tr>
+            <td>{{ t.type }}</td>
+            <td>₦{{ t.amount }}</td>
+            <td>{{ t.phone }}</td>
+            <td>
+                {% if t.status == 'Success' %}
+                    <span style="color:green;">
+                        ✅ {{ t.status }}
+                    </span>
+                {% else %}
+                    <span style="color:red;">
+                        ❌ {{ t.status }}
+                    </span>
+                {% endif %}
+            </td>
+            <td>{{ t.date.strftime('%Y-%m-%d %H:%M') }}</td>
+        </tr>
+        {% endfor %}
+    </table>
+    {% else %}
+        <p>No transactions yet!</p>
+    {% endif %}
+
+    <br>
+    <a href="/dashboard" class="btn btn-red">
+        ⬅ Back to Dashboard
+    </a>
+</div>
+
+{% endblock %}
