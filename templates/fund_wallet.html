@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="card" style="max-width:400px; margin:0 auto;">
+    <h2>💰 Fund Wallet</h2>
+
+    {% if success %}
+        <div class="success">{{ success }}</div>
+    {% endif %}
+
+    {% if error %}
+        <div class="error">{{ error }}</div>
+    {% endif %}
+
+    <div class="balance-box">
+        <p>Current Balance</p>
+        <h1>₦{{ "%.2f"|format(user.balance) }}</h1>
+    </div>
+
+    <form method="POST">
+        <label>Amount to Add (₦):</label>
+        <input type="number" name="amount"
+               placeholder="e.g. 1000"
+               min="100" required>
+
+        <button class="btn btn-green" type="submit">
+            💰 Fund Wallet
+        </button>
+    </form>
+
+    <br>
+    <a href="/dashboard" class="btn btn-red">
+        ⬅ Back to Dashboard
+    </a>
+</div>
+
+{% endblock %}
