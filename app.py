@@ -3,6 +3,7 @@ from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime
 import os
+import requests
 
 app = Flask(__name__)
 app.secret_key = 'vtu_secret_key_2024'
@@ -28,6 +29,24 @@ class Transaction(db.Model):
     phone = db.Column(db.String(20))
     status = db.Column(db.String(20), default='Success')
     date = db.Column(db.DateTime, default=datetime.utcnow)
+
+from functools import wraps
+
+def login_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'user_id' not in session:
+            return redirect(url_for('login'))
+        return f(*args, **kwargs)
+    return decorated_function
+
+def admin_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not session.get('is_admin'):
+            return "Access denied: Admins only", 403
+        return f(*args, **kwargs)
+    return decorated_function
 
 # --- ROUTES ---
 @app.route('/')
@@ -69,10 +88,35 @@ def register():
         return redirect(url_for('login'))
     return render_template('register.html')
 
+
+@app.route('/signup', methods=['GET', 'POST'])
+@login_required
+@admin_required
+def signup():
+    if request.method == 'POST':
+        username = request.form['username']
+        password = request.form['password']
+        is_admin = True if request.form.get('role') == 'admin' else False
+
+        existing = db.session.execute(
+            db.select(User).filter_by(username=username)
+        ).scalar_one_or_none()
+        if existing:
+            return render_template('signup.html', error='Username already exists')
+
+        new_user = User(
+            username=username,
+            password=generate_password_hash(password),
+            is_admin=is_admin
+        )
+        db.session.add(new_user)
+        db.session.commit()
+        return redirect(url_for('dashboard'))
+    return render_template('signup.html')
+
 @app.route('/dashboard')
+@login_required
 def dashboard():
-    if 'user_id' not in session:
-        return redirect(url_for('login'))
     user = db.session.get(User, session['user_id'])
     transactions = Transaction.query.filter_by(
         user_id=session['user_id']
@@ -82,9 +126,8 @@ def dashboard():
                          transactions=transactions)
 
 @app.route('/buy-airtime', methods=['GET', 'POST'])
+@login_required
 def buy_airtime():
-    if 'user_id' not in session:
-        return redirect(url_for('login'))
     user = db.session.get(User, session['user_id'])
     if request.method == 'POST':
         phone = request.form['phone']
@@ -110,9 +153,8 @@ def buy_airtime():
     return render_template('airtime.html', user=user)
 
 @app.route('/buy-data', methods=['GET', 'POST'])
+@login_required
 def buy_data():
-    if 'user_id' not in session:
-        return redirect(url_for('login'))
     user = db.session.get(User, session['user_id'])
     data_plans = {
         'MTN': ['500MB - ₦200', '1GB - ₦350', '2GB - ₦700'],
@@ -147,9 +189,8 @@ def buy_data():
     return render_template('data.html', user=user, data_plans=data_plans)
 
 @app.route('/fund-wallet', methods=['GET', 'POST'])
+@login_required
 def fund_wallet():
-    if 'user_id' not in session:
-        return redirect(url_for('login'))
     user = db.session.get(User, session['user_id'])
     if request.method == 'POST':
         amount = float(request.form['amount'])
@@ -169,9 +210,8 @@ def fund_wallet():
     return render_template('fund_wallet.html', user=user)
 
 @app.route('/transactions')
+@login_required
 def transactions():
-    if 'user_id' not in session:
-        return redirect(url_for('login'))
     user = db.session.get(User, session['user_id'])
     all_transactions = Transaction.query.filter_by(
         user_id=session['user_id']
@@ -181,9 +221,8 @@ def transactions():
                          transactions=all_transactions)
 
 @app.route('/admin')
+@login_required
 def admin():
-    if not session.get('is_admin'):
-        return redirect(url_for('dashboard'))
     users = User.query.all()
     transactions = Transaction.query.order_by(
         Transaction.date.desc()
@@ -191,6 +230,22 @@ def admin():
     return render_template('admin.html',
                          users=users,
                          transactions=transactions)
+
+@app.route('/weather', methods=['GET', 'POST'])
+@login_required
+def weather():
+    weather_data = None
+    if request.method == 'POST':
+        city = request.form['city']
+        url = f"https://wttr.in/{city}?format=j1"
+        response = requests.get(url)
+        data = response.json()
+        weather_data = {
+            'city': city,
+            'temp': data['current_condition'][0]['temp_C'],
+            'description': data['current_condition'][0]['weatherDesc'][0]['value']
+        }
+    return render_template('weather.html', weather=weather_data)
 
 @app.route('/logout')
 def logout():
