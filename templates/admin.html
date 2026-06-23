@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="card">
+    <h2>⚙️ Admin Panel</h2>
+
+    <h3 style="color:#0b3d91; margin-bottom:15px;">
+        All Users
+    </h3>
+    <table>
+        <tr>
+            <th>ID</th>
+            <th>Username</th>
+            <th>Phone</th>
+            <th>Balance</th>
+            <th>Admin</th>
+        </tr>
+        {% for user in users %}
+        <tr>
+            <td>{{ user.id }}</td>
+            <td>{{ user.username }}</td>
+            <td>{{ user.phone }}</td>
+            <td>₦{{ "%.2f"|format(user.balance) }}</td>
+            <td>
+                {% if user.is_admin %}
+                    ✅ Yes
+                {% else %}
+                    ❌ No
+                {% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+    </table>
+</div>
+
+<div class="card">
+    <h3 style="color:#0b3d91; margin-bottom:15px;">
+        All Transactions
+    </h3>
+    <table>
+        <tr>
+            <th>User ID</th>
+            <th>Type</th>
+            <th>Amount</th>
+            <th>Phone</th>
+            <th>Status</th>
+            <th>Date</th>
+        </tr>
+        {% for t in transactions %}
+        <tr>
+            <td>{{ t.user_id }}</td>
+            <td>{{ t.type }}</td>
+            <td>₦{{ t.amount }}</td>
+            <td>{{ t.phone }}</td>
+            <td>
+                {% if t.status == 'Success' %}
+                    <span style="color:green;">
+                        ✅ {{ t.status }}
+                    </span>
+                {% else %}
+                    <span style="color:red;">
+                        ❌ {{ t.status }}
+                    </span>
+                {% endif %}
+            </td>
+            <td>{{ t.date.strftime('%Y-%m-%d %H:%M') }}</td>
+        </tr>
+        {% endfor %}
+    </table>
+
+    <br>
+    <a href="/dashboard" class="btn btn-red">
+        ⬅ Back to Dashboard
+    </a>
+</div>
+
+{% endblock %}

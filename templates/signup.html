@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="card" style="max-width:400px; margin:50px auto;">
+    <h2>➕ Add New User</h2>
+
+    {% if error %}
+        <div class="error">{{ error }}</div>
+    {% endif %}
+
+    <form method="POST">
+        <label>Username:</label>
+        <input type="text" name="username"
+               placeholder="Enter username" required>
+
+        <label>Password:</label>
+        <input type="password" name="password"
+               placeholder="Enter password" required>
+
+        <label>Role:</label>
+        <select name="role" required>
+            <option value="teacher">Teacher</option>
+            <option value="admin">Admin</option>
+        </select>
+
+        <button class="btn" type="submit"
+                style="width:100%; padding:12px;">
+            Create User
+        </button>
+    </form>
+</div>
+
+{% endblock %}

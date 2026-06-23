@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="card" style="max-width:400px; margin:50px auto;">
+    <h2>🌦️ Weather Lookup</h2>
+
+    <form method="POST">
+        <label>City:</label>
+        <input type="text" name="city"
+               placeholder="Enter city name" required>
+
+        <button class="btn" type="submit"
+                style="width:100%; padding:12px;">
+            Get Weather
+        </button>
+    </form>
+
+    {% if weather %}
+        <div class="success" style="margin-top:20px;">
+            <strong>{{ weather.city }}</strong>: {{ weather.temp }}°C, {{ weather.description }}
+        </div>
+    {% endif %}
+</div>
+
+{% endblock %}

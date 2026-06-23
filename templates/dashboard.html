@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="balance-box">
+    <p>Welcome, {{ user.username }}!</p>
+    <h1>₦{{ "%.2f"|format(user.balance) }}</h1>
+    <p>Available Balance</p>
+</div>
+
+<div class="grid">
+    <a href="/buy-airtime" class="grid-item">
+        <span>📱</span>
+        Buy Airtime
+    </a>
+    <a href="/buy-data" class="grid-item">
+        <span>🌐</span>
+        Buy Data
+    </a>
+    <a href="/fund-wallet" class="grid-item">
+        <span>💰</span>
+        Fund Wallet
+    </a>
+    <a href="/transactions" class="grid-item">
+        <span>📋</span>
+        Transactions
+    </a>
+</div>
+
+<div class="card" style="margin-top: 20px;">
+    <h2>Recent Transactions</h2>
+    {% if transactions %}
+    <table>
+        <tr>
+            <th>Type</th>
+            <th>Amount</th>
+            <th>Phone</th>
+            <th>Status</th>
+            <th>Date</th>
+        </tr>
+        {% for t in transactions %}
+        <tr>
+            <td>{{ t.type }}</td>
+            <td>₦{{ t.amount }}</td>
+            <td>{{ t.phone }}</td>
+            <td>{{ t.status }}</td>
+            <td>{{ t.date.strftime('%Y-%m-%d %H:%M') }}</td>
+        </tr>
+        {% endfor %}
+    </table>
+    {% else %}
+    <p>No transactions yet!</p>
+    {% endif %}
+</div>
+
+{% endblock %}
