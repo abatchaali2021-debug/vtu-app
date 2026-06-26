@@ -133,24 +133,62 @@ def buy_airtime():
         phone = request.form['phone']
         amount = float(request.form['amount'])
         network = request.form['network']
+
+        # Check balance first
         if user.balance < amount:
             return render_template('airtime.html',
                                  user=user,
                                  error='Insufficient balance!')
-        user.balance -= amount
-        transaction = Transaction(
-            user_id=user.id,
-            type=f'{network} Airtime',
-            amount=amount,
-            phone=phone,
-            status='Success'
+
+        # Call VTpass API
+        api_key = "7f1cfa18e060f0258d1f0fc78f75917d"
+        secret_key = "SK_898d9e1bf7d87caddda7ee14ddc1e368db9207740b2"
+
+        request_id = datetime.now().strftime("%Y%m%d%H%M%S") + str(user.id)
+
+        headers = {
+            "api-key": api_key,
+            "secret-key": secret_key
+        }
+
+        payload = {
+            "request_id": request_id,
+            "serviceID": network.lower(),
+            "amount": int(amount),
+            "phone": phone
+        }
+
+        vtpass_response = requests.post(
+            "https://sandbox.vtpass.com/api/pay",
+            headers=headers,
+            json=payload
         )
-        db.session.add(transaction)
-        db.session.commit()
-        return render_template('airtime.html',
-                             user=user,
-                             success=f'Airtime of ₦{amount} sent to {phone}!')
+        result = vtpass_response.json()
+        print(result)
+
+        if result.get('code') == '000':
+            # Success — deduct balance
+            user.balance -= amount
+            transaction = Transaction(
+                user_id=user.id,
+                type=f'{network} Airtime',
+                amount=amount,
+                phone=phone,
+                status='Success'
+            )
+            db.session.add(transaction)
+            db.session.commit()
+            return render_template('airtime.html',
+                                 user=user,
+                                 success=f'Airtime of ₦{amount} sent to {phone} successfully!')
+        else:
+            # Failed — don't deduct balance
+            return render_template('airtime.html',
+                                 user=user,
+                                 error=f'Transaction failed: {result.get("response_description")}')
+
     return render_template('airtime.html', user=user)
+
 
 @app.route('/buy-data', methods=['GET', 'POST'])
 @login_required
