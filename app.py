@@ -194,37 +194,95 @@ def buy_airtime():
 @login_required
 def buy_data():
     user = db.session.get(User, session['user_id'])
+    
+    # VTpass variation codes for data plans
     data_plans = {
-        'MTN': ['500MB - ₦200', '1GB - ₦350', '2GB - ₦700'],
-        'Airtel': ['500MB - ₦200', '1GB - ₦300', '2GB - ₦600'],
-        'Glo': ['500MB - ₦150', '1GB - ₦250', '2GB - ₦500'],
-        '9mobile': ['500MB - ₦200', '1GB - ₦300', '2GB - ₦600'],
-    }
+    'mtn': [
+        {'plan': '100MB - 24hrs', 'code': 'mtn-10mb-100', 'amount': 100},
+        {'plan': '200MB - 2 days', 'code': 'mtn-50mb-200', 'amount': 200},
+        {'plan': '2.5GB - 2 days', 'code': 'mtn-2-5gb-600', 'amount': 600},
+        {'plan': '3GB - 2 days', 'code': 'mtn-3gb-800', 'amount': 800},
+        {'plan': '1.5GB - 30 days', 'code': 'mtn-100mb-1000', 'amount': 1000},
+        {'plan': '3GB - 30 days', 'code': 'mtn-3gb-1500', 'amount': 1500},
+        {'plan': '7GB - 7 days', 'code': 'mtn-7gb-2000', 'amount': 2000},
+    ],
+    'airtel': [
+        {'plan': '500MB - ₦200', 'code': 'airtel-500mb', 'amount': 200},
+        {'plan': '1GB - ₦300', 'code': 'airtel-1gb', 'amount': 300},
+    ],
+    'glo': [
+        {'plan': '500MB - ₦150', 'code': 'glo-500mb', 'amount': 150},
+        {'plan': '1GB - ₦250', 'code': 'glo-1gb', 'amount': 250},
+    ],
+    '9mobile': [
+        {'plan': '500MB - ₦200', 'code': '9mobile-500mb', 'amount': 200},
+        {'plan': '1GB - ₦300', 'code': '9mobile-1gb', 'amount': 300},
+    ],
+}
     if request.method == 'POST':
         phone = request.form['phone']
+        network = request.form['network'].lower()
+        variation_code = request.form['variation_code']
         amount = float(request.form['amount'])
-        network = request.form['network']
-        plan = request.form['plan']
+
         if user.balance < amount:
             return render_template('data.html',
                                  user=user,
                                  data_plans=data_plans,
                                  error='Insufficient balance!')
-        user.balance -= amount
-        transaction = Transaction(
-            user_id=user.id,
-            type=f'{network} Data - {plan}',
-            amount=amount,
-            phone=phone,
-            status='Success'
+
+        # Call VTpass API
+        api_key = "7f1cfa18e060f0258d1f0fc78f75917d"
+        secret_key = "SK_898d9e1bf7d87caddda7ee14ddc1e368db9207740b2"
+
+        request_id = datetime.now().strftime("%Y%m%d%H%M%S") + str(user.id)
+
+        headers = {
+            "api-key": api_key,
+            "secret-key": secret_key
+        }
+
+        payload = {
+            "request_id": request_id,
+            "serviceID": f"{network}-data",
+            "billersCode": phone,
+            "variation_code": variation_code,
+            "amount": int(amount),
+            "phone": phone
+        }
+        
+        print("Payload:", payload)
+        vtpass_response = requests.post(
+            "https://sandbox.vtpass.com/api/pay",
+            headers=headers,
+            json=payload
         )
-        db.session.add(transaction)
-        db.session.commit()
-        return render_template('data.html',
-                             user=user,
-                             data_plans=data_plans,
-                             success=f'Data {plan} sent to {phone}!')
+        result = vtpass_response.json()
+        print(result)
+
+        if result.get('code') == '000':
+            user.balance -= amount
+            transaction = Transaction(
+                user_id=user.id,
+                type=f'{network.upper()} Data - {variation_code}',
+                amount=amount,
+                phone=phone,
+                status='Success'
+            )
+            db.session.add(transaction)
+            db.session.commit()
+            return render_template('data.html',
+                                 user=user,
+                                 data_plans=data_plans,
+                                 success=f'Data sent to {phone} successfully!')
+        else:
+            return render_template('data.html',
+                                 user=user,
+                                 data_plans=data_plans,
+                                 error=f'Transaction failed: {result.get("response_description")}')
+
     return render_template('data.html', user=user, data_plans=data_plans)
+
 
 @app.route('/fund-wallet', methods=['GET', 'POST'])
 @login_required
