@@ -4,12 +4,20 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime
 import os
 import requests
+from flask_mail import Mail, Message
 
 app = Flask(__name__)
 app.secret_key = 'vtu_secret_key_2024'
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(BASE_DIR, 'database.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['MAIL_SERVER'] = 'smtp.gmail.com'
+app.config['MAIL_PORT'] = 587
+app.config['MAIL_USE_TLS'] = True
+app.config['MAIL_USERNAME'] = 'aliabatcha990@gmail.com'
+app.config['MAIL_PASSWORD'] = 'mvvxqttzfdgxosoy'
+
+mail = Mail(app)
 db = SQLAlchemy(app)
 
 # --- MODELS ---
@@ -19,6 +27,7 @@ class User(db.Model):
     password = db.Column(db.String(120), nullable=False)
     balance = db.Column(db.Float, default=0.0)
     phone = db.Column(db.String(20))
+    email = db.Column(db.String(120))
     is_admin = db.Column(db.Boolean, default=False)
 
 class Transaction(db.Model):
@@ -75,19 +84,20 @@ def register():
         username = request.form['username']
         password = request.form['password']
         phone = request.form['phone']
+        email = request.form['email']
         existing = User.query.filter_by(username=username).first()
         if existing:
             return render_template('register.html', error='Username already exists')
         new_user = User(
             username=username,
             password=generate_password_hash(password),
-            phone=phone
+            phone=phone,
+            email=email
         )
         db.session.add(new_user)
         db.session.commit()
         return redirect(url_for('login'))
     return render_template('register.html')
-
 
 @app.route('/signup', methods=['GET', 'POST'])
 @login_required
@@ -97,13 +107,11 @@ def signup():
         username = request.form['username']
         password = request.form['password']
         is_admin = True if request.form.get('role') == 'admin' else False
-
         existing = db.session.execute(
             db.select(User).filter_by(username=username)
         ).scalar_one_or_none()
         if existing:
             return render_template('signup.html', error='Username already exists')
-
         new_user = User(
             username=username,
             password=generate_password_hash(password),
@@ -134,20 +142,20 @@ def buy_airtime():
         amount = float(request.form['amount'])
         network = request.form['network']
 
-        # Check balance first
         if user.balance < amount:
             return render_template('airtime.html',
                                  user=user,
                                  error='Insufficient balance!')
 
-        # Call VTpass API
         api_key = "7f1cfa18e060f0258d1f0fc78f75917d"
-        secret_key = "SK_898d9e1bf7d87caddda7ee14ddc1e368db9207740b2"
+        secret_key = "SK_6942b7cb660250306ee80396afe0b55597bcc1d1f3b"
+        public_key = "PK_82779e4ef1425f731c9cee599472f886a8d8578c4f7"
 
         request_id = datetime.now().strftime("%Y%m%d%H%M%S") + str(user.id)
 
         headers = {
             "api-key": api_key,
+            "public-key": public_key,
             "secret-key": secret_key
         }
 
@@ -164,10 +172,9 @@ def buy_airtime():
             json=payload
         )
         result = vtpass_response.json()
-        print(result)
+        print("Full result:", result)
 
         if result.get('code') == '000':
-            # Success — deduct balance
             user.balance -= amount
             transaction = Transaction(
                 user_id=user.id,
@@ -178,47 +185,56 @@ def buy_airtime():
             )
             db.session.add(transaction)
             db.session.commit()
+
+            # Send receipt email
+            if user.email:
+                msg = Message(
+                    subject='Airtime Purchase Receipt',
+                    sender=app.config['MAIL_USERNAME'],
+                    recipients=[user.email]
+                )
+                msg.body = f'Hello {user.username},\n\nYour airtime purchase was successful!\n\nAmount: ₦{amount}\nPhone: {phone}\nNetwork: {network}\nDate: {datetime.now().strftime("%Y-%m-%d %H:%M")}\n\nThank you for using our VTU service!'
+                mail.send(msg)
+
             return render_template('airtime.html',
                                  user=user,
-                                 success=f'Airtime of ₦{amount} sent to {phone} successfully!')
+                                 success=f'Airtime of ₦{amount} sent to {phone} successfully! Receipt sent to your email.')
         else:
-            # Failed — don't deduct balance
             return render_template('airtime.html',
                                  user=user,
                                  error=f'Transaction failed: {result.get("response_description")}')
 
     return render_template('airtime.html', user=user)
 
-
 @app.route('/buy-data', methods=['GET', 'POST'])
 @login_required
 def buy_data():
     user = db.session.get(User, session['user_id'])
-    
-    # VTpass variation codes for data plans
+
     data_plans = {
-    'mtn': [
-        {'plan': '100MB - 24hrs', 'code': 'mtn-10mb-100', 'amount': 100},
-        {'plan': '200MB - 2 days', 'code': 'mtn-50mb-200', 'amount': 200},
-        {'plan': '2.5GB - 2 days', 'code': 'mtn-2-5gb-600', 'amount': 600},
-        {'plan': '3GB - 2 days', 'code': 'mtn-3gb-800', 'amount': 800},
-        {'plan': '1.5GB - 30 days', 'code': 'mtn-100mb-1000', 'amount': 1000},
-        {'plan': '3GB - 30 days', 'code': 'mtn-3gb-1500', 'amount': 1500},
-        {'plan': '7GB - 7 days', 'code': 'mtn-7gb-2000', 'amount': 2000},
-    ],
-    'airtel': [
-        {'plan': '500MB - ₦200', 'code': 'airtel-500mb', 'amount': 200},
-        {'plan': '1GB - ₦300', 'code': 'airtel-1gb', 'amount': 300},
-    ],
-    'glo': [
-        {'plan': '500MB - ₦150', 'code': 'glo-500mb', 'amount': 150},
-        {'plan': '1GB - ₦250', 'code': 'glo-1gb', 'amount': 250},
-    ],
-    '9mobile': [
-        {'plan': '500MB - ₦200', 'code': '9mobile-500mb', 'amount': 200},
-        {'plan': '1GB - ₦300', 'code': '9mobile-1gb', 'amount': 300},
-    ],
-}
+        'mtn': [
+            {'plan': '100MB - 24hrs', 'code': 'mtn-10mb-100', 'amount': 100},
+            {'plan': '200MB - 2 days', 'code': 'mtn-50mb-200', 'amount': 200},
+            {'plan': '2.5GB - 2 days', 'code': 'mtn-2-5gb-600', 'amount': 600},
+            {'plan': '3GB - 2 days', 'code': 'mtn-3gb-800', 'amount': 800},
+            {'plan': '1.5GB - 30 days', 'code': 'mtn-100mb-1000', 'amount': 1000},
+            {'plan': '3GB - 30 days', 'code': 'mtn-3gb-1500', 'amount': 1500},
+            {'plan': '7GB - 7 days', 'code': 'mtn-7gb-2000', 'amount': 2000},
+        ],
+        'airtel': [
+            {'plan': '500MB - ₦200', 'code': 'airtel-500mb', 'amount': 200},
+            {'plan': '1GB - ₦300', 'code': 'airtel-1gb', 'amount': 300},
+        ],
+        'glo': [
+            {'plan': '500MB - ₦150', 'code': 'glo-500mb', 'amount': 150},
+            {'plan': '1GB - ₦250', 'code': 'glo-1gb', 'amount': 250},
+        ],
+        '9mobile': [
+            {'plan': '500MB - ₦200', 'code': '9mobile-500mb', 'amount': 200},
+            {'plan': '1GB - ₦300', 'code': '9mobile-1gb', 'amount': 300},
+        ],
+    }
+
     if request.method == 'POST':
         phone = request.form['phone']
         network = request.form['network'].lower()
@@ -231,14 +247,14 @@ def buy_data():
                                  data_plans=data_plans,
                                  error='Insufficient balance!')
 
-        # Call VTpass API
         api_key = "7f1cfa18e060f0258d1f0fc78f75917d"
-        secret_key = "SK_898d9e1bf7d87caddda7ee14ddc1e368db9207740b2"
-
+        secret_key = "SK_6942b7cb660250306ee80396afe0b55597bcc1d1f3b"
+        public_key = "PK_82779e4ef1425f731c9cee599472f886a8d8578c4f7"
         request_id = datetime.now().strftime("%Y%m%d%H%M%S") + str(user.id)
 
         headers = {
             "api-key": api_key,
+             "public-key": public_key,
             "secret-key": secret_key
         }
 
@@ -250,15 +266,13 @@ def buy_data():
             "amount": int(amount),
             "phone": phone
         }
-        
-        print("Payload:", payload)
+
         vtpass_response = requests.post(
             "https://sandbox.vtpass.com/api/pay",
             headers=headers,
             json=payload
         )
         result = vtpass_response.json()
-        print(result)
 
         if result.get('code') == '000':
             user.balance -= amount
@@ -271,10 +285,21 @@ def buy_data():
             )
             db.session.add(transaction)
             db.session.commit()
+
+            # Send receipt email
+            if user.email:
+                msg = Message(
+                    subject='Data Purchase Receipt',
+                    sender=app.config['MAIL_USERNAME'],
+                    recipients=[user.email]
+                )
+                msg.body = f'Hello {user.username},\n\nYour data purchase was successful!\n\nPlan: {variation_code}\nPhone: {phone}\nNetwork: {network.upper()}\nAmount: ₦{amount}\nDate: {datetime.now().strftime("%Y-%m-%d %H:%M")}\n\nThank you for using our VTU service!'
+                mail.send(msg)
+
             return render_template('data.html',
                                  user=user,
                                  data_plans=data_plans,
-                                 success=f'Data sent to {phone} successfully!')
+                                 success=f'Data sent to {phone} successfully! Receipt sent to your email.')
         else:
             return render_template('data.html',
                                  user=user,
@@ -282,7 +307,6 @@ def buy_data():
                                  error=f'Transaction failed: {result.get("response_description")}')
 
     return render_template('data.html', user=user, data_plans=data_plans)
-
 
 @app.route('/fund-wallet', methods=['GET', 'POST'])
 @login_required
@@ -351,7 +375,6 @@ def logout():
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()
-        # Create admin user if not exists
         admin = db.session.execute(
             db.select(User).filter_by(username='admin')
         ).scalar_one_or_none()
@@ -360,6 +383,7 @@ if __name__ == '__main__':
                 username='admin',
                 password=generate_password_hash('admin123'),
                 phone='08000000000',
+                email='aliabatcha990@gmail.com',
                 balance=0.0,
                 is_admin=True
             )
