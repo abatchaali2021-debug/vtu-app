@@ -1,14 +1,11 @@
-<<<<<<< HEAD
 {% extends "base.html" %}
 {% block content %}
-
 <div class="card">
     <h2>📱 Buy Airtime</h2>
 
     {% if success %}
         <div class="success">{{ success }}</div>
     {% endif %}
-
     {% if error %}
         <div class="error">{{ error }}</div>
     {% endif %}
@@ -18,25 +15,27 @@
         <h1>₦{{ "%.2f"|format(user.balance) }}</h1>
     </div>
 
-    <form method="POST">
+    <form method="POST" onsubmit="return validateForm()">
         <label>Select Network:</label>
-        <select name="network" required>
+        <select name="network" id="network" required>
             <option value="">-- Select Network --</option>
-            <option value="MTN">MTN</option>
-            <option value="Airtel">Airtel</option>
-            <option value="Glo">Glo</option>
+            <option value="mtn">MTN</option>
+            <option value="airtel">Airtel</option>
+            <option value="glo">Glo</option>
             <option value="9mobile">9mobile</option>
         </select>
 
         <label>Phone Number:</label>
-        <input type="text" name="phone"
+        <input type="text" name="phone" id="phone"
                placeholder="e.g. 08012345678"
                required>
 
         <label>Amount (₦):</label>
-        <input type="number" name="amount"
+        <input type="number" name="amount" id="amount"
                placeholder="e.g. 100"
                min="50" required>
+
+        <div id="formError" style="color:red; margin-bottom:10px;"></div>
 
         <button class="btn" type="submit">
             Buy Airtime
@@ -48,4 +47,30 @@
         ⬅ Back to Dashboard
     </a>
 </div>
+
+<script>
+    function validateForm() {
+        var phone = document.getElementById("phone").value;
+        var amount = document.getElementById("amount").value;
+        var network = document.getElementById("network").value;
+
+        if (network === "") {
+            document.getElementById("formError").innerText = "Please select a network!";
+            return false;
+        }
+
+        if (phone.length !== 11) {
+            document.getElementById("formError").innerText = "Phone number must be 11 digits!";
+            return false;
+        }
+
+        if (amount < 50) {
+            document.getElementById("formError").innerText = "Minimum amount is ₦50!";
+            return false;
+        }
+
+        return true;
+    }
+</script>
+
 {% endblock %}
