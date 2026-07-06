@@ -5,6 +5,7 @@ from datetime import datetime
 import os
 import requests
 from flask_mail import Mail, Message
+from flask_migrate import Migrate
 
 app = Flask(__name__)
 app.secret_key = 'vtu_secret_key_2024'
@@ -19,6 +20,7 @@ app.config['MAIL_PASSWORD'] = 'mvvxqttzfdgxosoy'
 
 mail = Mail(app)
 db = SQLAlchemy(app)
+migrate = Migrate(app, db)
 
 # --- MODELS ---
 class User(db.Model):
@@ -29,6 +31,7 @@ class User(db.Model):
     phone = db.Column(db.String(20))
     email = db.Column(db.String(120))
     is_admin = db.Column(db.Boolean, default=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 class Transaction(db.Model):
     id = db.Column(db.Integer, primary_key=True)
